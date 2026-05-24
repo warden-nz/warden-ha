@@ -8,7 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_USERNAME
+from .const import DOMAIN
 from .coordinator import WardenCoordinator
 
 
@@ -22,7 +22,7 @@ async def async_setup_entry(
         WardenPriceSensor(coordinator, entry),
         WardenAlertLevelSensor(coordinator, entry),
         WardenRollingAvg30mSensor(coordinator, entry),
-        WardenWindowAvg30dSensor(coordinator, entry),
+        WardenWindowAvgSensor(coordinator, entry),
         WardenPercentileSensor(coordinator, entry),
     ])
 
@@ -119,11 +119,11 @@ class WardenRollingAvg30mSensor(CoordinatorEntity, SensorEntity):
         }
 
 
-class WardenWindowAvg30dSensor(CoordinatorEntity, SensorEntity):
-    """Average price for this 30-minute window over the last 30 days.
+class WardenWindowAvgSensor(CoordinatorEntity, SensorEntity):
+    """Historical average price for this 30-minute window (same time, same day of week).
 
-    Useful for comparing whether the current price is cheap or expensive
-    relative to the same time of day/week historically.
+    Improves over time as more data accumulates — after a year you have
+    52 data points per window slot, after 10 years, 500.
     """
 
     _attr_native_unit_of_measurement = "NZD/MWh"
@@ -134,8 +134,8 @@ class WardenWindowAvg30dSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         node = entry.data.get("node", "unknown")
-        self._attr_unique_id = f"{entry.entry_id}_window_avg_30d"
-        self._attr_name = f"Warden {node} 30d Window Average"
+        self._attr_unique_id = f"{entry.entry_id}_window_avg"
+        self._attr_name = f"Warden {node} Window Average"
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -143,24 +143,26 @@ class WardenWindowAvg30dSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> float | None:
-        return self.coordinator.data.get("window_avg_30d")
+        return self.coordinator.data.get("window_avg")
 
     @property
     def extra_state_attributes(self) -> dict:
         return {
             "node":           self.coordinator.data.get("node"),
-            "window_p10_30d": self.coordinator.data.get("window_p10_30d"),
-            "window_p90_30d": self.coordinator.data.get("window_p90_30d"),
+            "window_p10":     self.coordinator.data.get("window_p10"),
+            "window_p90":     self.coordinator.data.get("window_p90"),
             "window_samples": self.coordinator.data.get("window_samples"),
         }
 
 
 class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
-    """Where the current price sits in the 30-day distribution for this time window.
+    """Where the current price sits in the historical distribution for this time window.
 
-    A value of 20 means the price is cheaper than 80% of historical prices
-    for this same 30-minute window over the last 30 days — i.e. it's cheap.
+    A value of 20 means the price is cheaper than 80% of all historical prices
+    for this same 30-minute window — i.e. it's cheap.
     A value of 90 means it's more expensive than 90% of historical prices — i.e. it's a spike.
+
+    Accuracy improves over time as more data accumulates.
     """
 
     _attr_native_unit_of_measurement = "%"
@@ -171,7 +173,7 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         node = entry.data.get("node", "unknown")
-        self._attr_unique_id = f"{entry.entry_id}_percentile_30d"
+        self._attr_unique_id = f"{entry.entry_id}_percentile"
         self._attr_name = f"Warden {node} Price Percentile"
 
     @property
@@ -180,7 +182,7 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> int | None:
-        return self.coordinator.data.get("percentile_30d")
+        return self.coordinator.data.get("percentile")
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -191,7 +193,7 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
         }
 
     def _interpret(self) -> str | None:
-        pct = self.coordinator.data.get("percentile_30d")
+        pct = self.coordinator.data.get("percentile")
         if pct is None:
             return None
         if pct <= 10:

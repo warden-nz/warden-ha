@@ -86,11 +86,11 @@ class WardenCoordinator(DataUpdateCoordinator):
             "alert_level":     status.get("alert_level", "normal"),
             "spike_active":    status.get("spike_active", False),
             "rolling_avg_30m": node_data.get("rolling_avg_30m"),
-            "window_avg_30d":  node_data.get("window_avg_30d"),
-            "window_p10_30d":  node_data.get("window_p10_30d"),
-            "window_p90_30d":  node_data.get("window_p90_30d"),
+            "window_avg":      node_data.get("window_avg"),
+            "window_p10":      node_data.get("window_p10"),
+            "window_p90":      node_data.get("window_p90"),
             "window_samples":  node_data.get("window_samples"),
-            "percentile_30d":  node_data.get("percentile_30d"),
+            "percentile":      node_data.get("percentile"),
         }
 
     async def _get(self, endpoint: str) -> dict | list:
