@@ -1,0 +1,11 @@
+[Unit]
+Description=Warden NZ WITS Collector — fetch WITS prices to polling DB
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/warden
+ExecStart=/opt/warden/venv/bin/python3 /opt/warden/nz_wits_collector.py
+StandardOutput=journal
+StandardError=journal
