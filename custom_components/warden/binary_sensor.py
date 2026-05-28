@@ -18,7 +18,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WardenCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WardenCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([WardenSpikeSensor(coordinator, entry)])
 
 
@@ -52,6 +52,6 @@ class WardenSpikeSensor(CoordinatorEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict:
         return {
             "alert_level": self.coordinator.data.get("alert_level"),
-            "node": self.coordinator.data.get("node"),
-            "price": self.coordinator.data.get("price"),
+            "node":        self.coordinator.data.get("node"),
+            "price":       self.coordinator.data.get("price"),
         }
