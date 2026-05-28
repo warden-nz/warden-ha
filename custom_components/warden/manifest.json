@@ -1,7 +1,7 @@
 {
   "domain": "warden",
   "name": "Warden NZ Electricity Prices",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "config_flow": true,
   "documentation": "https://github.com/warden-nz/warden-ha",
   "issue_tracker": "https://github.com/warden-nz/warden-ha/issues",
