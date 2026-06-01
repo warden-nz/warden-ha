@@ -269,7 +269,6 @@ class WardenCheapestWindowSensor(CoordinatorEntity, SensorEntity):
     """
 
     _attr_native_unit_of_measurement = "NZD/MWh"
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:clock-check-outline"
 
     def __init__(
@@ -283,7 +282,7 @@ class WardenCheapestWindowSensor(CoordinatorEntity, SensorEntity):
         self._window_hours = window_hours
         node = entry.data.get("node", "unknown")
         self._attr_unique_id = f"{entry.entry_id}_cheapest_{window_hours}h"
-        self._attr_name = f"Warden {node} Cheapest {window_hours}h Window"
+        self._attr_name = f"Warden Cheapest {window_hours}h Window"
 
     @property
     def device_info(self) -> DeviceInfo:
