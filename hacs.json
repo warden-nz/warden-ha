@@ -1,6 +1,4 @@
 {
   "name": "Warden NZ Electricity Prices",
-  "render_readme": true,
-  "homeassistant": "2023.1.0",
-  "filename": "warden.zip"
+  "render_readme": true
 }
