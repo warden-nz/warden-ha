@@ -21,15 +21,12 @@ async def async_setup_entry(
     forecast_coordinator: WardenForecastCoordinator = hass.data[DOMAIN][entry.entry_id]["forecast_coordinator"]
 
     entities = [
-        # Current price sensors
         WardenPriceSensor(coordinator, entry),
         WardenAlertLevelSensor(coordinator, entry),
         WardenRollingAvg30mSensor(coordinator, entry),
         WardenWindowAvgSensor(coordinator, entry),
         WardenPercentileSensor(coordinator, entry),
-        # Forecast sensor
         WardenForecastSensor(forecast_coordinator, entry),
-        # Cheapest window sensors
         *[WardenCheapestWindowSensor(forecast_coordinator, entry, hours)
           for hours in CHEAPEST_WINDOW_HOURS],
     ]
@@ -37,7 +34,6 @@ async def async_setup_entry(
 
 
 def _device_info(entry: ConfigEntry, node: str) -> DeviceInfo:
-    """Shared device info so all entities appear under one device in HA."""
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         name=f"Warden ({node})",
@@ -48,13 +44,13 @@ def _device_info(entry: ConfigEntry, node: str) -> DeviceInfo:
 
 
 # ---------------------------------------------------------------------------
-# Current price sensors (unchanged)
+# Current price sensors
 # ---------------------------------------------------------------------------
 
 class WardenPriceSensor(CoordinatorEntity, SensorEntity):
-    """Current spot price in NZD/MWh for the account's node."""
+    """Current spot price in $/kWh for the account's node."""
 
-    _attr_native_unit_of_measurement = "NZD/MWh"
+    _attr_native_unit_of_measurement = "$/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:lightning-bolt"
 
@@ -104,9 +100,9 @@ class WardenAlertLevelSensor(CoordinatorEntity, SensorEntity):
 
 
 class WardenRollingAvg30mSensor(CoordinatorEntity, SensorEntity):
-    """Rolling average price over the last 30 minutes."""
+    """Rolling average price over the last 30 minutes in $/kWh."""
 
-    _attr_native_unit_of_measurement = "NZD/MWh"
+    _attr_native_unit_of_measurement = "$/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:chart-bell-curve"
 
@@ -127,15 +123,13 @@ class WardenRollingAvg30mSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        return {
-            "node": self.coordinator.data.get("node"),
-        }
+        return {"node": self.coordinator.data.get("node")}
 
 
 class WardenWindowAvgSensor(CoordinatorEntity, SensorEntity):
-    """Historical average price for this 30-minute window (same time, same day of week)."""
+    """Historical average price for this 30-minute window in $/kWh."""
 
-    _attr_native_unit_of_measurement = "NZD/MWh"
+    _attr_native_unit_of_measurement = "$/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:chart-timeline-variant"
 
@@ -214,16 +208,9 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
 # ---------------------------------------------------------------------------
 
 class WardenForecastSensor(CoordinatorEntity, SensorEntity):
-    """Next period's forecast price, with the full 24hr forecast as attributes.
+    """Next period's forecast price in $/kWh, with full 24hr forecast as attributes."""
 
-    State: the price of the next 5-minute period.
-    Attributes: full forecast array for use in HA templates and automations.
-
-    Example template to get the price in 2 hours:
-        {{ state_attr('sensor.warden_otа2201_forecast', 'prices')[24]['price'] }}
-    """
-
-    _attr_native_unit_of_measurement = "NZD/MWh"
+    _attr_native_unit_of_measurement = "$/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:chart-timeline"
 
@@ -256,19 +243,9 @@ class WardenForecastSensor(CoordinatorEntity, SensorEntity):
 
 
 class WardenCheapestWindowSensor(CoordinatorEntity, SensorEntity):
-    """Cheapest upcoming contiguous window of N hours.
+    """Cheapest upcoming contiguous window of N hours in $/kWh."""
 
-    State: average $/MWh across the cheapest window.
-    Attributes: start_time and end_time of that window.
-
-    Example automation trigger — start dishwasher at cheapest 1hr window:
-        trigger:
-          platform: template
-          value_template: >
-            {{ now().isoformat() >= state_attr('sensor.warden_oта2201_cheapest_1h', 'start_time') }}
-    """
-
-    _attr_native_unit_of_measurement = "NZD/MWh"
+    _attr_native_unit_of_measurement = "$/kWh"
     _attr_icon = "mdi:clock-check-outline"
 
     def __init__(
@@ -280,7 +257,6 @@ class WardenCheapestWindowSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._window_hours = window_hours
-        node = entry.data.get("node", "unknown")
         self._attr_unique_id = f"{entry.entry_id}_cheapest_{window_hours}h"
         self._attr_name = f"Warden Cheapest {window_hours}h Window"
 
