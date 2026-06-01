@@ -1,4 +1,4 @@
-# Warden — NZ Electricity Price Monitor for Home Assistant
+# Warden — AU/NZ Wholesale Electricity Price Monitor for Home Assistant
 
 A HACS custom integration that connects Home Assistant to [Warden](https://wardenz.com), exposing real-time NZ wholesale electricity spot prices and contextual pricing intelligence so you can automate EV charging, battery export, and other energy decisions.
 
