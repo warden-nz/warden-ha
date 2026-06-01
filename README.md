@@ -1,6 +1,6 @@
 # Warden — AU/NZ Wholesale Electricity Price Monitor for Home Assistant
 
-A HACS custom integration that connects Home Assistant to [Warden](https://wardenz.com), exposing real-time NZ wholesale electricity spot prices and contextual pricing intelligence so you can automate EV charging, battery export, and other energy decisions.
+A HACS custom integration that connects Home Assistant to [Warden](https://wardenz.com), exposing real-time NZ wholesale electricity spot prices, contextual pricing intelligence, and 24-hour price forecasts so you can automate EV charging, battery export, appliance scheduling, and other energy decisions.
 
 ## Prerequisites
 
@@ -31,18 +31,24 @@ Copy the `custom_components/warden/` folder into your HA config's `custom_compon
 
 ## Entities
 
-| Entity | Type | Description |
-|---|---|---|
-| `sensor.warden_{node}_price` | Sensor | Current spot price in NZD/MWh |
-| `sensor.warden_{node}_alert_level` | Sensor | `normal`, `high`, or `spike` |
-| `sensor.warden_{node}_30m_average` | Sensor | Rolling average price over the last 30 minutes in NZD/MWh |
-| `sensor.warden_{node}_30d_window_average` | Sensor | Average price for this 30-minute window over the last 30 days in NZD/MWh |
-| `sensor.warden_{node}_price_percentile` | Sensor | Where the current price sits in the 30-day distribution for this time window (%) |
-| `binary_sensor.warden_{node}_spike_active` | Binary Sensor | `ON` during a price spike |
+| Entity | Type | Updates | Description |
+|---|---|---|---|
+| `sensor.warden_{node}_price` | Sensor | 5 min | Current spot price in NZD/MWh |
+| `sensor.warden_{node}_alert_level` | Sensor | 5 min | `normal`, `high`, or `spike` |
+| `sensor.warden_{node}_30m_average` | Sensor | 5 min | Rolling average price over the last 30 minutes in NZD/MWh |
+| `sensor.warden_{node}_window_average` | Sensor | 5 min | Average price for this 30-minute window over the last 30 days in NZD/MWh |
+| `sensor.warden_{node}_price_percentile` | Sensor | 5 min | Where the current price sits in the historical distribution for this time window (%) |
+| `binary_sensor.warden_{node}_spike_active` | Binary Sensor | 5 min | `ON` during a price spike |
+| `sensor.warden_{node}_forecast` | Sensor | 30 min | Next period's forecast price in NZD/MWh, with full 24hr forecast as attributes |
+| `sensor.warden_cheapest_1h_window` | Sensor | 30 min | Average price of the cheapest upcoming 1-hour window in NZD/MWh |
+| `sensor.warden_cheapest_2h_window` | Sensor | 30 min | Average price of the cheapest upcoming 2-hour window in NZD/MWh |
+| `sensor.warden_cheapest_3h_window` | Sensor | 30 min | Average price of the cheapest upcoming 3-hour window in NZD/MWh |
+
+> **Note:** Forecast and cheapest window sensors are currently NZ-only. AU forecast support is planned for a future release.
 
 ### Understanding the percentile sensor
 
-The price percentile is the most powerful signal for automations. It tells you where the current price sits relative to the same time window over the last 30 days:
+The price percentile is the most powerful signal for automations. It tells you where the current price sits relative to the same time window historically:
 
 | Percentile | Interpretation | Suggested action |
 |---|---|---|
@@ -56,14 +62,37 @@ Using percentile-based triggers means your automations automatically adapt to se
 
 The `interpretation` attribute on the percentile sensor (`very cheap`, `cheap`, `normal`, `expensive`, `spike`) can be used directly in template conditions.
 
-### Understanding the 30d window average
+### Understanding the window average
 
-The 30-day window average compares the current price against the historical average for the same 30-minute slot (e.g. Sunday 3:00–3:30pm) over the last 30 days. This accounts for time-of-day and day-of-week patterns in the wholesale market.
+The window average compares the current price against the historical average for the same 30-minute slot (e.g. Sunday 3:00–3:30pm) over available history. This accounts for time-of-day and day-of-week patterns in the wholesale market.
 
 Additional attributes on this sensor:
-- `window_p10_30d` — 10th percentile price for this window (historically cheap threshold)
-- `window_p90_30d` — 90th percentile price for this window (historically expensive threshold)
-- `window_samples` — number of historical data points used (increases over time up to ~30)
+- `window_p10` — 10th percentile price for this window (historically cheap threshold)
+- `window_p90` — 90th percentile price for this window (historically expensive threshold)
+- `window_samples` — number of historical data points used (increases over time)
+
+### Understanding the forecast sensor
+
+The forecast sensor exposes the WITS PRSL (Pre-Solving) price forecast for your node, covering the remainder of the current trading day plus the next (typically 20–42 periods depending on time of day). The sensor state is the next period's forecast price.
+
+The full forecast array is available as the `prices` attribute — a list of objects each containing `trading_datetime`, `price`, and `horizon_minutes`. This can be used in HA templates:
+
+```yaml
+# Price in approximately 2 hours (index 4 = 4 x 30-min periods)
+{{ state_attr('sensor.warden_alb0331_forecast', 'prices')[4]['price'] }}
+```
+
+If your exact node isn't available in the forecast data, the integration automatically falls back to your zone's reference node (e.g. OTA2201 for Upper North Island).
+
+### Understanding the cheapest window sensors
+
+The cheapest window sensors identify the best upcoming time to run high-draw appliances or charge batteries. Each sensor finds the contiguous block of 30-minute periods with the lowest average price across the forecast horizon.
+
+Each sensor exposes:
+- **State** — average NZD/MWh across the cheapest window
+- `start_time` — ISO8601 timestamp when the cheap window begins
+- `end_time` — ISO8601 timestamp when the cheap window ends
+- `node` — the node used for the forecast (may be zone reference node)
 
 ## Example automations
 
@@ -140,6 +169,53 @@ automation:
           entity_id: switch.ev_charger
 ```
 
+### Start dishwasher at cheapest upcoming 1-hour window
+
+```yaml
+automation:
+  - alias: "Start dishwasher at cheapest 1h window"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ now().isoformat() >= state_attr('sensor.warden_cheapest_1h_window', 'start_time') }}
+    condition:
+      - condition: template
+        value_template: >
+          {{ state_attr('sensor.warden_cheapest_1h_window', 'avg_price') | float < 80 }}
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.dishwasher
+```
+
+### Charge EV during cheapest 3-hour window overnight
+
+```yaml
+automation:
+  - alias: "Charge EV during cheapest 3h window"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ now().isoformat() >= state_attr('sensor.warden_cheapest_3h_window', 'start_time') }}
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.ev_charger
+  - alias: "Stop EV charging after cheapest 3h window"
+    trigger:
+      - platform: template
+        value_template: >
+          {{ now().isoformat() >= state_attr('sensor.warden_cheapest_3h_window', 'end_time') }}
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.ev_charger
+```
+
+## Data freshness
+
+Current price sensors update every 5 minutes, aligned with the NZ wholesale electricity dispatch cycle. Forecast and cheapest window sensors update every 30 minutes. The window stats become more accurate as history accumulates.
+
 ## Session expiry
 
 If your Warden session expires, HA will show a notification on the integration card prompting you to log in again. Your automations will resume automatically once you do.
@@ -147,7 +223,3 @@ If your Warden session expires, HA will show a notification on the integration c
 ## Changing your node
 
 Log in to [wardenz.com](https://wardenz.com) and update your profile. The change will be reflected in HA after the integration is reloaded (Settings → Integrations → Warden → Reload).
-
-## Data freshness
-
-All sensors update every 5 minutes, aligned with the NZ wholesale electricity dispatch cycle. The 30-day window stats become more accurate as history accumulates — expect full statistical confidence after 30 days of operation.
