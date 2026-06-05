@@ -8,7 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CHEAPEST_WINDOW_HOURS
+from .const import DOMAIN, CHEAPEST_WINDOW_HOURS, CONF_COUNTRY
 from .coordinator import WardenCoordinator, WardenForecastCoordinator
 
 
@@ -34,11 +34,13 @@ async def async_setup_entry(
 
 
 def _device_info(entry: ConfigEntry, node: str) -> DeviceInfo:
+    country = entry.data.get(CONF_COUNTRY, "NZ")
+    model = "AU Electricity Price Monitor" if country == "AU" else "NZ Electricity Price Monitor"
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         name=f"Warden ({node})",
         manufacturer="Warden",
-        model="NZ Electricity Price Monitor",
+        model=model,
         configuration_url="https://wardenz.com",
     )
 
@@ -48,7 +50,7 @@ def _device_info(entry: ConfigEntry, node: str) -> DeviceInfo:
 # ---------------------------------------------------------------------------
 
 class WardenPriceSensor(CoordinatorEntity, SensorEntity):
-    """Current spot price in $/kWh for the account's node."""
+    """Current spot price in $/kWh for the account's node or region."""
 
     _attr_native_unit_of_measurement = "$/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -57,7 +59,7 @@ class WardenPriceSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = coordinator.data.get("node") if coordinator.data else entry.data.get("node", "unknown")
         self._attr_unique_id = f"{entry.entry_id}_price"
         self._attr_name = f"Warden {node} Price"
 
@@ -235,7 +237,7 @@ class WardenForecastSensor(CoordinatorEntity, SensorEntity):
     def extra_state_attributes(self) -> dict:
         forecast = self.coordinator.data.get("forecast", [])
         return {
-            "node":           self.coordinator.data.get("forecast_node"),
+            "node":           self.coordinator.data.get("node"),
             "next_timestamp": self.coordinator.data.get("next_timestamp"),
             "period_count":   len(forecast),
             "prices":         forecast,

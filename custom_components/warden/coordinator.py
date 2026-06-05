@@ -1,10 +1,13 @@
 """Warden DataUpdateCoordinators.
 
-WardenCoordinator   — polls every 5 minutes for current price and spike status.
+WardenCoordinator        — polls every 5 minutes for current price and spike status.
 WardenForecastCoordinator — polls every 30 minutes for forecast and cheapest windows.
 
 If the API returns 401 (token expired), both coordinators signal HA to show
 the re-authentication flow.
+
+The /status endpoint is account-aware: it returns data for the correct NZ node
+or AU NEM region based on the JWT, so no client-side filtering is needed.
 """
 from __future__ import annotations
 
@@ -25,7 +28,8 @@ from .const import (
     FORECAST_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_NODE,
-    ENDPOINT_LATEST,
+    CONF_COUNTRY,
+    CONF_REGION,
     ENDPOINT_STATUS,
     ENDPOINT_FORECAST,
     ENDPOINT_CHEAPEST,
@@ -53,17 +57,36 @@ class WardenCoordinator(DataUpdateCoordinator):
         return self._entry.data[CONF_TOKEN]
 
     @property
-    def _node(self) -> str:
-        return self._entry.data[CONF_NODE]
+    def _node(self) -> str | None:
+        return self._entry.data.get(CONF_NODE)
+
+    @property
+    def _country(self) -> str:
+        return self._entry.data.get(CONF_COUNTRY, "NZ")
+
+    @property
+    def _region(self) -> str | None:
+        return self._entry.data.get(CONF_REGION)
+
+    @property
+    def _location_label(self) -> str:
+        """Human-readable label for this account's price location."""
+        if self._country == "AU":
+            return self._region or "unknown"
+        return self._node or "unknown"
 
     @property
     def _auth_headers(self) -> dict:
         return {"Authorization": f"Bearer {self._token}"}
 
     async def _async_update_data(self) -> dict:
-        """Fetch latest price + status. Called automatically every 5 minutes by HA."""
+        """Fetch current price + status from /status.
+
+        The endpoint is account-aware — it returns the correct node or region
+        data based on the JWT, so no client-side filtering is required.
+        Called automatically every 5 minutes by HA.
+        """
         try:
-            prices = await self._get(ENDPOINT_LATEST)
             status = await self._get(ENDPOINT_STATUS)
         except ConfigEntryAuthFailed:
             raise
@@ -72,27 +95,18 @@ class WardenCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Error fetching Warden data: {err}") from err
 
-        node_data = next(
-            (p for p in prices if p.get("node") == self._node), None
-        )
-        if node_data is None:
-            raise UpdateFailed(
-                f"Node {self._node} not found in API response. "
-                "It may have changed on wardenz.com — try reloading the integration."
-            )
-
         return {
-            "node":            self._node,
-            "price":           node_data.get("price"),
-            "timestamp":       node_data.get("timestamp"),
+            "node":            self._location_label,
+            "price":           status.get("price"),
+            "timestamp":       status.get("timestamp"),
             "alert_level":     status.get("alert_level", "normal"),
             "spike_active":    status.get("spike_active", False),
-            "rolling_avg_30m": node_data.get("rolling_avg_30m"),
-            "window_avg":      node_data.get("window_avg"),
-            "window_p10":      node_data.get("window_p10"),
-            "window_p90":      node_data.get("window_p90"),
-            "window_samples":  node_data.get("window_samples"),
-            "percentile":      node_data.get("percentile"),
+            "rolling_avg_30m": status.get("rolling_avg_30m"),
+            "window_avg":      status.get("window_avg"),
+            "window_p10":      status.get("window_p10"),
+            "window_p90":      status.get("window_p90"),
+            "window_samples":  status.get("window_samples"),
+            "percentile":      status.get("percentile"),
         }
 
     async def _get(self, endpoint: str) -> dict | list:
@@ -133,8 +147,22 @@ class WardenForecastCoordinator(DataUpdateCoordinator):
         return self._entry.data[CONF_TOKEN]
 
     @property
-    def _node(self) -> str:
-        return self._entry.data[CONF_NODE]
+    def _country(self) -> str:
+        return self._entry.data.get(CONF_COUNTRY, "NZ")
+
+    @property
+    def _region(self) -> str | None:
+        return self._entry.data.get(CONF_REGION)
+
+    @property
+    def _node(self) -> str | None:
+        return self._entry.data.get(CONF_NODE)
+
+    @property
+    def _location_label(self) -> str:
+        if self._country == "AU":
+            return self._region or "unknown"
+        return self._node or "unknown"
 
     @property
     def _auth_headers(self) -> dict:
@@ -156,14 +184,13 @@ class WardenForecastCoordinator(DataUpdateCoordinator):
         cheapest_by_hours = {w["window_hours"]: w for w in cheapest}
 
         return {
-            "node":             self._node,
-            "forecast":         forecast,
-            "next_price":       forecast[0]["price"] if forecast else None,
-            "next_timestamp":   forecast[0]["trading_datetime"] if forecast else None,
-            "forecast_node":    forecast[0]["node"] if forecast else None,
-            "cheapest_1h":      cheapest_by_hours.get(1),
-            "cheapest_2h":      cheapest_by_hours.get(2),
-            "cheapest_3h":      cheapest_by_hours.get(3),
+            "node":           self._location_label,
+            "forecast":       forecast,
+            "next_price":     forecast[0]["price"] if forecast else None,
+            "next_timestamp": forecast[0]["trading_datetime"] if forecast else None,
+            "cheapest_1h":    cheapest_by_hours.get(1),
+            "cheapest_2h":    cheapest_by_hours.get(2),
+            "cheapest_3h":    cheapest_by_hours.get(3),
         }
 
     async def _get(self, endpoint: str) -> dict | list:

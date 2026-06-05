@@ -1,4 +1,4 @@
-"""Constants for the Warden NZ Electricity integration."""
+"""Constants for the Warden NZ & AU Electricity integration."""
 
 DOMAIN = "warden"
 
@@ -16,6 +16,8 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_TOKEN = "access_token"
 CONF_NODE = "node"
+CONF_COUNTRY = "country"
+CONF_REGION = "region"   # AU NEM region e.g. NSW1, VIC1
 
 # Warden API endpoints
 ENDPOINT_LOGIN    = "/auth/login"

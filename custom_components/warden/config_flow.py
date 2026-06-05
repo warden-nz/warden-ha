@@ -1,8 +1,8 @@
-"""Config flow for Warden NZ Electricity.
+"""Config flow for Warden Electricity.
 
 Step 1 — user enters their wardenz.com username and password.
          The flow calls /auth/login to get a token, then /auth/me
-         to fetch the node associated with their account.
+         to fetch the node (NZ) or region (AU) associated with their account.
 Step 2 — confirmation screen showing the account details before saving.
 
 If the token ever expires after setup, HA will call async_step_reauth
@@ -19,7 +19,15 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .auth import async_login, async_get_account, WardenAuthError, WardenConnectionError
-from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD, CONF_TOKEN, CONF_NODE
+from .const import (
+    DOMAIN,
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    CONF_TOKEN,
+    CONF_NODE,
+    CONF_COUNTRY,
+    CONF_REGION,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +50,8 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._username: str | None = None
         self._node: str | None = None
         self._tier: str | None = None
+        self._country: str | None = None
+        self._region: str | None = None
 
     # ------------------------------------------------------------------
     # Step 1: ask for username and password
@@ -71,8 +81,10 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Login succeeded — stash details and move to confirmation
                 self._token = token
                 self._username = account.get("username", user_input[CONF_USERNAME])
-                self._node = account.get("node", "unknown")
+                self._node = account.get("node")
                 self._tier = account.get("tier", "free")
+                self._country = account.get("country", "NZ")
+                self._region = account.get("region")
                 return await self.async_step_confirm()
 
         return self.async_show_form(
@@ -95,20 +107,24 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=f"Warden — {self._username}",
                 data={
-                    CONF_TOKEN: self._token,
+                    CONF_TOKEN:    self._token,
                     CONF_USERNAME: self._username,
-                    CONF_NODE: self._node,
+                    CONF_NODE:     self._node,
+                    CONF_COUNTRY:  self._country,
+                    CONF_REGION:   self._region,
                 },
             )
 
-        # Show a summary so the user can see what account + node was found
+        # Show a summary so the user can see what account + node/region was found
         # before they click Submit
         return self.async_show_form(
             step_id="confirm",
             description_placeholders={
                 "username": self._username,
-                "node": self._node,
-                "tier": self._tier,
+                "node":     self._node or "—",
+                "tier":     self._tier,
+                "country":  self._country,
+                "region":   self._region or "—",
             },
             data_schema=vol.Schema({}),  # no fields — just a confirm button
         )
@@ -152,9 +168,11 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass.config_entries.async_update_entry(
                         existing_entry,
                         data={
-                            CONF_TOKEN: token,
+                            CONF_TOKEN:    token,
                             CONF_USERNAME: account.get("username"),
-                            CONF_NODE: account.get("node"),
+                            CONF_NODE:     account.get("node"),
+                            CONF_COUNTRY:  account.get("country", "NZ"),
+                            CONF_REGION:   account.get("region"),
                         },
                     )
                     await self.hass.config_entries.async_reload(existing_entry.entry_id)
