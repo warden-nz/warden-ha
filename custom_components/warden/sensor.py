@@ -8,7 +8,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CHEAPEST_WINDOW_HOURS, CONF_COUNTRY
+from .const import DOMAIN, CHEAPEST_WINDOW_HOURS, CONF_COUNTRY, CONF_REGION, CONF_NODE
 from .coordinator import WardenCoordinator, WardenForecastCoordinator
 
 
@@ -31,6 +31,13 @@ async def async_setup_entry(
           for hours in CHEAPEST_WINDOW_HOURS],
     ]
     async_add_entities(entities)
+
+
+def _location_label(entry: ConfigEntry) -> str:
+    """Return node for NZ users, region for AU users."""
+    if entry.data.get(CONF_COUNTRY) == "AU":
+        return entry.data.get(CONF_REGION) or "unknown"
+    return entry.data.get(CONF_NODE) or "unknown"
 
 
 def _device_info(entry: ConfigEntry, node: str) -> DeviceInfo:
@@ -59,7 +66,7 @@ class WardenPriceSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = coordinator.data.get("node") if coordinator.data else entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_price"
         self._attr_name = f"Warden {node} Price"
 
@@ -88,7 +95,7 @@ class WardenAlertLevelSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_alert_level"
         self._attr_name = f"Warden {node} Alert Level"
 
@@ -111,7 +118,7 @@ class WardenRollingAvg30mSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_rolling_avg_30m"
         self._attr_name = f"Warden {node} 30m Average"
 
@@ -138,7 +145,7 @@ class WardenWindowAvgSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_window_avg"
         self._attr_name = f"Warden {node} Window Average"
 
@@ -170,7 +177,7 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_percentile"
         self._attr_name = f"Warden {node} Price Percentile"
 
@@ -221,7 +228,7 @@ class WardenForecastSensor(CoordinatorEntity, SensorEntity):
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_forecast"
         self._attr_name = f"Warden {node} Forecast"
 
