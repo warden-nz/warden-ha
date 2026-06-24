@@ -4,7 +4,7 @@ All notable changes to the Warden Home Assistant integration are documented here
 
 This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.0.5] - 2026-06-24
+## [1.0.6] - 2026-06-24
 
 ### Added
 - Carbon Intensity sensor (`g/kWh`) — current NZ grid carbon intensity, sourced from em6 (Transpower/EMS).
