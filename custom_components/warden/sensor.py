@@ -230,9 +230,8 @@ class WardenCarbonIntensitySensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_carbon_intensity"
-        self._attr_name = f"Warden {node} Carbon Intensity"
+        self._attr_name = "Warden Carbon Intensity"
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -265,9 +264,8 @@ class WardenRenewablePctSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_renewable_pct"
-        self._attr_name = f"Warden {node} Renewable %"
+        self._attr_name = "Warden Renewable %"
 
     @property
     def device_info(self) -> DeviceInfo:
