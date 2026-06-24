@@ -26,6 +26,8 @@ async def async_setup_entry(
         WardenRollingAvg30mSensor(coordinator, entry),
         WardenWindowAvgSensor(coordinator, entry),
         WardenPercentileSensor(coordinator, entry),
+        WardenCarbonIntensitySensor(coordinator, entry),
+        WardenRenewablePctSensor(coordinator, entry),
         WardenForecastSensor(forecast_coordinator, entry),
         *[WardenCheapestWindowSensor(forecast_coordinator, entry, hours)
           for hours in CHEAPEST_WINDOW_HOURS],
@@ -210,6 +212,77 @@ class WardenPercentileSensor(CoordinatorEntity, SensorEntity):
         if pct <= 90:
             return "expensive"
         return "spike"
+
+
+class WardenCarbonIntensitySensor(CoordinatorEntity, SensorEntity):
+    """Current grid carbon intensity in g CO2/kWh.
+
+    NZ only — em6's free carbon intensity feed is a single nationwide
+    figure with no per-node or per-region breakdown, so this value is
+    the same for every NZ user regardless of node or tier. Returns
+    unavailable for AU accounts until an AU emissions source is added.
+    """
+
+    _attr_native_unit_of_measurement = "g/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:molecule-co2"
+
+    def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        node = _location_label(entry)
+        self._attr_unique_id = f"{entry.entry_id}_carbon_intensity"
+        self._attr_name = f"Warden {node} Carbon Intensity"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _device_info(self._entry, self.coordinator.data.get("node", ""))
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.get("carbon_intensity_gkwh")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            "node":  self.coordinator.data.get("node"),
+            "scope": "NZ-wide (em6) — not specific to this node",
+        }
+
+
+class WardenRenewablePctSensor(CoordinatorEntity, SensorEntity):
+    """Current percentage of NZ generation that is renewable.
+
+    NZ only — see WardenCarbonIntensitySensor for the same nationwide-only
+    caveat. Returns unavailable for AU accounts until an AU emissions
+    source is added.
+    """
+
+    _attr_native_unit_of_measurement = "%"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:leaf"
+
+    def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        node = _location_label(entry)
+        self._attr_unique_id = f"{entry.entry_id}_renewable_pct"
+        self._attr_name = f"Warden {node} Renewable %"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _device_info(self._entry, self.coordinator.data.get("node", ""))
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.get("renewable_pct")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            "node":  self.coordinator.data.get("node"),
+            "scope": "NZ-wide (em6) — not specific to this node",
+        }
 
 
 # ---------------------------------------------------------------------------
