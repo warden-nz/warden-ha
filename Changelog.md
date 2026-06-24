@@ -2,14 +2,12 @@
 All notable changes to the Warden Home Assistant integration are documented here.
 This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.0.7] - 2026-06-25
-### Added
-- Carbon Intensity sensor (`g/kWh`) - current NZ grid carbon intensity, sourced from em6 (Transpower/EMS).
-- Renewable % sensor (`%`) - current percentage of NZ generation that is renewable, sourced from em6.
-### Notes
-- Both new sensors are **NZ-only**. em6's free carbon intensity feed is a single nationwide figure with no per-node or per-region breakdown, so the value is identical for every NZ user regardless of node or tier.
-- AU accounts will show these sensors as `unknown` until an AU-side emissions data source is added.
-
-## [1.0.6] - 2026-06-25
+## [1.0.8] - 2026-06-25
+### Fixed
+- Carbon Intensity and Renewable % sensors were added in code but never wired through `coordinator.py`, so they always showed `unknown`. The coordinator now forwards `carbon_intensity_gkwh` and `renewable_pct` from `/status` to the sensors.
 ### Changed
-- Synced `manifest.json` version number with actual release tag history (no functional changes).
+- Renamed Carbon Intensity and Renewable % sensors to drop the per-node prefix (e.g. "Warden Carbon Intensity" instead of "Warden ALB0331 Carbon Intensity"), since these values are NZ-wide, not node-specific.
+
+## [1.0.7] - 2026-06-25
+### Changed
+- Versioning/changelog housekeeping only. Note: the Carbon Intensity and Renewable % sensors introduced in this release's changelog text were not actually functional until 1.0.8 — see above.
