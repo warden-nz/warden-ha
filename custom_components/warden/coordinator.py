@@ -107,6 +107,8 @@ class WardenCoordinator(DataUpdateCoordinator):
             "window_p90":      status.get("window_p90"),
             "window_samples":  status.get("window_samples"),
             "percentile":      status.get("percentile"),
+            "carbon_intensity_gkwh": status.get("carbon_intensity_gkwh"),
+            "renewable_pct":         status.get("renewable_pct"),
         }
 
     async def _get(self, endpoint: str) -> dict | list:
