@@ -284,6 +284,7 @@ cards:
           name: Forecast Price ($/kWh)
           color: "#0984e3"
           type: column
+          float_precision: 2
           data_generator: |
             return entity.attributes.prices.map(p => ({
               x: new Date(p.trading_datetime).getTime(),
@@ -344,6 +345,7 @@ cards:
           name: Forecast Price ($/kWh)
           color: "#0984e3"
           type: column
+          float_precision: 2
           data_generator: |
             return entity.attributes.prices.map(p => ({
               x: new Date(p.trading_datetime).getTime(),
@@ -404,6 +406,7 @@ cards:
           name: Forecast Price ($/kWh)
           color: "#0984e3"
           type: column
+          float_precision: 2
           data_generator: |
             return entity.attributes.prices.map(p => ({
               x: new Date(p.trading_datetime).getTime(),
@@ -411,7 +414,6 @@ cards:
             }));
 grid_options:
   columns: full
-
 
 
 ## Data freshness
