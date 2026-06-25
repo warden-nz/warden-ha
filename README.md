@@ -248,7 +248,7 @@ cards:
       now:
         show: true
         label: Now
-      graph_span: 20h
+      graph_span: 25h
       span:
         start: hour
       apex_config:
@@ -308,7 +308,7 @@ cards:
       now:
         show: true
         label: Now
-      graph_span: 20h
+      graph_span: 25h
       span:
         start: hour
       apex_config:
@@ -368,7 +368,7 @@ cards:
       now:
         show: true
         label: Now
-      graph_span: 20h
+      graph_span: 25h
       span:
         start: hour
       apex_config:
