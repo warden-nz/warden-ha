@@ -212,6 +212,208 @@ automation:
           entity_id: switch.ev_charger
 ```
 
+## Example dashboard card
+
+Here is an example card which shows the forcast price and cheapest windows
+# Warden Price Forecast — Lovelace example
+#
+# Requires (install via HACS first):
+#   - apexcharts-card        https://github.com/RomRider/apexcharts-card
+#   - config-template-card   https://github.com/iantrich/config-template-card
+#
+# Before pasting this in, replace YOUR_NODE everywhere below with your
+# own node code, e.g. alb0331 (check Settings -> Devices & Services ->
+# Warden -> your sensors to confirm the exact entity ids).
+
+type: vertical-stack
+cards:
+  - type: markdown
+    content: >
+      ## Warden Price Forecast
+
+      **Cheapest 1h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_1h_window', 'start_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
+      state_attr('sensor.warden_YOUR_NODE_cheapest_1h_window', 'end_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
+      states('sensor.warden_YOUR_NODE_cheapest_1h_window') | float
+      | round(4) }} $/kWh**
+  - type: custom:config-template-card
+    entities:
+      - sensor.warden_YOUR_NODE_cheapest_1h_window
+      - sensor.warden_YOUR_NODE_forecast
+    card:
+      type: custom:apexcharts-card
+      header:
+        show: false
+      now:
+        show: true
+        label: Now
+      graph_span: 20h
+      span:
+        start: hour
+      apex_config:
+        chart:
+          type: bar
+          height: 150
+        annotations:
+          xaxis:
+            - x: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_1h_window'].attributes.start_time).getTime()
+                }
+              x2: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_1h_window'].attributes.end_time).getTime() }
+              fillColor: "#00b894"
+              opacity: 0.25
+              label:
+                text: Cheapest 1h
+                style:
+                  color: "#ffffff"
+                  background: "#00b894"
+                  fontSize: 12px
+        xaxis:
+          type: datetime
+          labels:
+            datetimeUTC: false
+        tooltip:
+          x:
+            format: ddd dd MMM HH:mm
+      series:
+        - entity: sensor.warden_YOUR_NODE_forecast
+          name: Forecast Price ($/kWh)
+          color: "#0984e3"
+          type: column
+          data_generator: |
+            return entity.attributes.prices.map(p => ({
+              x: new Date(p.trading_datetime).getTime(),
+              y: p.price
+            }));
+  - type: markdown
+    content: >
+      **Cheapest 2h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_2h_window', 'start_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
+      state_attr('sensor.warden_YOUR_NODE_cheapest_2h_window', 'end_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
+      states('sensor.warden_YOUR_NODE_cheapest_2h_window') | float
+      | round(4) }} $/kWh**
+  - type: custom:config-template-card
+    entities:
+      - sensor.warden_YOUR_NODE_cheapest_2h_window
+      - sensor.warden_YOUR_NODE_forecast
+    card:
+      type: custom:apexcharts-card
+      header:
+        show: false
+      now:
+        show: true
+        label: Now
+      graph_span: 20h
+      span:
+        start: hour
+      apex_config:
+        chart:
+          type: bar
+          height: 150
+        annotations:
+          xaxis:
+            - x: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_2h_window'].attributes.start_time).getTime()
+                }
+              x2: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_2h_window'].attributes.end_time).getTime() }
+              fillColor: "#0984e3"
+              opacity: 0.25
+              label:
+                text: Cheapest 2h
+                style:
+                  color: "#ffffff"
+                  background: "#0984e3"
+                  fontSize: 12px
+        xaxis:
+          type: datetime
+          labels:
+            datetimeUTC: false
+        tooltip:
+          x:
+            format: ddd dd MMM HH:mm
+      series:
+        - entity: sensor.warden_YOUR_NODE_forecast
+          name: Forecast Price ($/kWh)
+          color: "#0984e3"
+          type: column
+          data_generator: |
+            return entity.attributes.prices.map(p => ({
+              x: new Date(p.trading_datetime).getTime(),
+              y: p.price
+            }));
+  - type: markdown
+    content: >
+      **Cheapest 3h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_3h_window', 'start_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
+      state_attr('sensor.warden_YOUR_NODE_cheapest_3h_window', 'end_time')
+      | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
+      states('sensor.warden_YOUR_NODE_cheapest_3h_window') | float
+      | round(4) }} $/kWh**
+  - type: custom:config-template-card
+    entities:
+      - sensor.warden_YOUR_NODE_cheapest_3h_window
+      - sensor.warden_YOUR_NODE_forecast
+    card:
+      type: custom:apexcharts-card
+      header:
+        show: false
+      now:
+        show: true
+        label: Now
+      graph_span: 20h
+      span:
+        start: hour
+      apex_config:
+        chart:
+          type: bar
+          height: 150
+        annotations:
+          xaxis:
+            - x: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_3h_window'].attributes.start_time).getTime()
+                }
+              x2: >-
+                ${ new
+                Date(states['sensor.warden_YOUR_NODE_cheapest_3h_window'].attributes.end_time).getTime() }
+              fillColor: "#6c5ce7"
+              opacity: 0.25
+              label:
+                text: Cheapest 3h
+                style:
+                  color: "#ffffff"
+                  background: "#6c5ce7"
+                  fontSize: 12px
+        xaxis:
+          type: datetime
+          labels:
+            datetimeUTC: false
+        tooltip:
+          x:
+            format: ddd dd MMM HH:mm
+      series:
+        - entity: sensor.warden_YOUR_NODE_forecast
+          name: Forecast Price ($/kWh)
+          color: "#0984e3"
+          type: column
+          data_generator: |
+            return entity.attributes.prices.map(p => ({
+              x: new Date(p.trading_datetime).getTime(),
+              y: p.price
+            }));
+grid_options:
+  columns: full
+
+
+
 ## Data freshness
 
 Current price sensors update every 5 minutes, aligned with the NZ wholesale electricity dispatch cycle. Forecast and cheapest window sensors update every 30 minutes. The window stats become more accurate as history accumulates.
