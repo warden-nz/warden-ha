@@ -1,12 +1,12 @@
 {
   "domain": "warden",
   "name": "Warden Electricity Prices",
-  "version": "1.0.9",
+  "codeowners": ["@warden-nz"],
   "config_flow": true,
+  "dependencies": [],
   "documentation": "https://github.com/warden-nz/warden-ha",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/warden-nz/warden-ha/issues",
   "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@warden-nz"],
-  "iot_class": "cloud_polling"
+  "version": "1.0.9"
 }
