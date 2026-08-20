@@ -6,8 +6,12 @@ WardenForecastCoordinator — polls every 30 minutes for forecast and cheapest w
 If the API returns 401 (token expired), both coordinators signal HA to show
 the re-authentication flow.
 
-The /status endpoint is account-aware: it returns data for the correct NZ node
-or AU NEM region based on the JWT, so no client-side filtering is needed.
+If the API returns 402 (free tier, upgrade required), both coordinators signal
+HA to show the re-authentication flow with an upgrade message.
+
+The /ha/* endpoints are gated at API_ACCESS_LEVEL (smart+ only). The account-
+aware response returns data for the correct NZ node or AU NEM region based on
+the JWT, so no client-side filtering is needed.
 """
 from __future__ import annotations
 
@@ -30,12 +34,15 @@ from .const import (
     CONF_NODE,
     CONF_COUNTRY,
     CONF_REGION,
-    ENDPOINT_STATUS,
-    ENDPOINT_FORECAST,
-    ENDPOINT_CHEAPEST,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Dedicated HA endpoints — gated at API_ACCESS_LEVEL (smart+ only).
+# Separate from the app/web endpoints so free-tier users retain app access.
+HA_ENDPOINT_STATUS   = "/ha/status"
+HA_ENDPOINT_FORECAST = "/ha/prices/forecast"
+HA_ENDPOINT_CHEAPEST = "/ha/prices/cheapest"
 
 
 class WardenCoordinator(DataUpdateCoordinator):
@@ -80,14 +87,14 @@ class WardenCoordinator(DataUpdateCoordinator):
         return {"Authorization": f"Bearer {self._token}"}
 
     async def _async_update_data(self) -> dict:
-        """Fetch current price + status from /status.
+        """Fetch current price + status from /ha/status.
 
         The endpoint is account-aware — it returns the correct node or region
         data based on the JWT, so no client-side filtering is required.
         Called automatically every 5 minutes by HA.
         """
         try:
-            status = await self._get(ENDPOINT_STATUS)
+            status = await self._get(HA_ENDPOINT_STATUS)
         except ConfigEntryAuthFailed:
             raise
         except aiohttp.ClientConnectorError as err:
@@ -112,7 +119,12 @@ class WardenCoordinator(DataUpdateCoordinator):
         }
 
     async def _get(self, endpoint: str) -> dict | list:
-        """GET a Warden API endpoint, raising ConfigEntryAuthFailed on 401."""
+        """GET a Warden API endpoint.
+
+        Raises ConfigEntryAuthFailed on 401 (token expired) or 402 (free tier
+        — upgrade required). Both cause HA to show the re-authentication flow,
+        which is the correct UX for either case.
+        """
         async with self._session.get(
             f"{API_BASE_URL}{endpoint}",
             headers=self._auth_headers,
@@ -121,6 +133,11 @@ class WardenCoordinator(DataUpdateCoordinator):
             if resp.status == 401:
                 raise ConfigEntryAuthFailed(
                     "Warden token expired. Please re-enter your wardenz.com credentials."
+                )
+            if resp.status == 402:
+                raise ConfigEntryAuthFailed(
+                    "Warden Home Assistant integration requires a Smart or Device plan. "
+                    "Upgrade at wardenz.com/upgrade."
                 )
             resp.raise_for_status()
             return await resp.json()
@@ -173,8 +190,8 @@ class WardenForecastCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Fetch forecast prices and cheapest windows."""
         try:
-            forecast = await self._get(ENDPOINT_FORECAST)
-            cheapest = await self._get(ENDPOINT_CHEAPEST)
+            forecast = await self._get(HA_ENDPOINT_FORECAST)
+            cheapest = await self._get(HA_ENDPOINT_CHEAPEST)
         except ConfigEntryAuthFailed:
             raise
         except aiohttp.ClientConnectorError as err:
@@ -196,7 +213,12 @@ class WardenForecastCoordinator(DataUpdateCoordinator):
         }
 
     async def _get(self, endpoint: str) -> dict | list:
-        """GET a Warden API endpoint, raising ConfigEntryAuthFailed on 401."""
+        """GET a Warden API endpoint.
+
+        Raises ConfigEntryAuthFailed on 401 (token expired) or 402 (free tier
+        — upgrade required). Both cause HA to show the re-authentication flow,
+        which is the correct UX for either case.
+        """
         async with self._session.get(
             f"{API_BASE_URL}{endpoint}",
             headers=self._auth_headers,
@@ -205,6 +227,11 @@ class WardenForecastCoordinator(DataUpdateCoordinator):
             if resp.status == 401:
                 raise ConfigEntryAuthFailed(
                     "Warden token expired. Please re-enter your wardenz.com credentials."
+                )
+            if resp.status == 402:
+                raise ConfigEntryAuthFailed(
+                    "Warden Home Assistant integration requires a Smart or Device plan. "
+                    "Upgrade at wardenz.com/upgrade."
                 )
             resp.raise_for_status()
             return await resp.json()
