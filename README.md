@@ -4,7 +4,7 @@ A HACS custom integration that connects Home Assistant to [Warden](https://warde
 
 ## Prerequisites
 
-- A [wardenz.com](https://wardenz.com) account on a **Smart or Device plan, or within the 90-day free trial** that every new account starts with. The Home Assistant API is not included in the free plan; free accounts can still use the Warden app and website. If you try to set up the integration with a free account, setup will stop with a "requires a Smart or Device plan" message. Upgrade at [wardenz.com/upgrade](https://wardenz.com/upgrade).
+- A [wardenz.com](https://wardenz.com) account on a **Smart or Device plan, or within the 30-day free trial** that every new account starts with. The Home Assistant API is not included in the free plan; free accounts can still use the Warden app and website. If you try to set up the integration with a free account, setup will stop with a "requires a Smart or Device plan" message. Upgrade at [wardenz.com/upgrade](https://wardenz.com/upgrade).
   - If your trial ends without upgrading, the integration stops loading and shows the same message. Upgrade, then reload the integration (Settings → Devices & Services → Warden → Reload) and it picks up where it left off.
 - HACS installed in Home Assistant
 
