@@ -27,5 +27,17 @@ ENDPOINT_STATUS   = "/status"
 ENDPOINT_FORECAST = "/prices/forecast"
 ENDPOINT_CHEAPEST = "/prices/cheapest"
 
+# Dedicated HA endpoints — gated at API_ACCESS_LEVEL (Smart / Device plans only).
+# Separate from the app/web endpoints so free-tier users retain app access.
+HA_ENDPOINT_STATUS   = "/ha/status"
+HA_ENDPOINT_FORECAST = "/ha/prices/forecast"
+HA_ENDPOINT_CHEAPEST = "/ha/prices/cheapest"
+
+PLAN_REQUIRED_MESSAGE = (
+    "Your Warden trial has ended or your plan doesn't include Home Assistant. "
+    "The integration requires a Smart or Device plan. "
+    "Upgrade at wardenz.com/upgrade."
+)
+
 # Cheapest window sizes in hours
 CHEAPEST_WINDOW_HOURS = [1, 2, 3]

@@ -1,13 +1,14 @@
 # Warden — AU/NZ Wholesale Electricity Price Monitor for Home Assistant
 
-A HACS custom integration that connects Home Assistant to [Warden](https://wardenz.com), exposing real-time NZ wholesale electricity spot prices, contextual pricing intelligence, and 24-hour price forecasts so you can automate EV charging, battery export, appliance scheduling, and other energy decisions.
+A HACS custom integration that connects Home Assistant to [Warden](https://wardenz.com), exposing real-time NZ and AU wholesale electricity spot prices, contextual pricing intelligence, and 24-hour price forecasts so you can automate EV charging, battery export, appliance scheduling, and other energy decisions.
 
 ## Prerequisites
 
-- A [wardenz.com](https://wardenz.com) account (free or paid)
+- A [wardenz.com](https://wardenz.com) account on a **Smart or Device plan, or within the 90-day free trial** that every new account starts with. The Home Assistant API is not included in the free plan; free accounts can still use the Warden app and website. If you try to set up the integration with a free account, setup will stop with a "requires a Smart or Device plan" message. Upgrade at [wardenz.com/upgrade](https://wardenz.com/upgrade).
+  - If your trial ends without upgrading, the integration stops loading and shows the same message. Upgrade, then reload the integration (Settings → Devices & Services → Warden → Reload) and it picks up where it left off.
 - HACS installed in Home Assistant
 
-Your reference node is set on your wardenz.com account profile — you don't need to configure it in HA. Free accounts get access to the main grid nodes (OTA2201, HAY2201, BEN2201). Paid accounts get an ICP-matched node for your local pricing point.
+Your reference node (NZ) or NEM region (AU) is set on your wardenz.com account profile, so you don't need to configure it in HA.
 
 ## Installation
 
@@ -27,24 +28,28 @@ Copy the `custom_components/warden/` folder into your HA config's `custom_compon
 1. Go to **Settings → Devices & Services → Add Integration**
 2. Search for **Warden**
 3. Enter your wardenz.com username and password
-4. HA will fetch your account details and confirm before saving
+4. HA will fetch your account details, check your plan includes Home Assistant access, and confirm before saving
 
 ## Entities
 
+`{node}` is your NZ node (e.g. `ota2201`) or, for AU accounts, your NEM region (e.g. `nsw1`). All prices are in **$/kWh** (NZD for NZ accounts, AUD for AU accounts).
+
 | Entity | Type | Updates | Description |
 |---|---|---|---|
-| `sensor.warden_{node}_price` | Sensor | 5 min | Current spot price in NZD/MWh |
+| `sensor.warden_{node}_price` | Sensor | 5 min | Current spot price in $/kWh |
 | `sensor.warden_{node}_alert_level` | Sensor | 5 min | `normal`, `high`, or `spike` |
-| `sensor.warden_{node}_30m_average` | Sensor | 5 min | Rolling average price over the last 30 minutes in NZD/MWh |
-| `sensor.warden_{node}_window_average` | Sensor | 5 min | Average price for this 30-minute window over the last 30 days in NZD/MWh |
+| `sensor.warden_{node}_30m_average` | Sensor | 5 min | Rolling average price over the last 30 minutes in $/kWh |
+| `sensor.warden_{node}_window_average` | Sensor | 5 min | Average price for this 30-minute window over the last 30 days in $/kWh |
 | `sensor.warden_{node}_price_percentile` | Sensor | 5 min | Where the current price sits in the historical distribution for this time window (%) |
 | `binary_sensor.warden_{node}_spike_active` | Binary Sensor | 5 min | `ON` during a price spike |
-| `sensor.warden_{node}_forecast` | Sensor | 30 min | Next period's forecast price in NZD/MWh, with full 24hr forecast as attributes |
-| `sensor.warden_cheapest_1h_window` | Sensor | 30 min | Average price of the cheapest upcoming 1-hour window in NZD/MWh |
-| `sensor.warden_cheapest_2h_window` | Sensor | 30 min | Average price of the cheapest upcoming 2-hour window in NZD/MWh |
-| `sensor.warden_cheapest_3h_window` | Sensor | 30 min | Average price of the cheapest upcoming 3-hour window in NZD/MWh |
+| `sensor.warden_carbon_intensity` | Sensor | 5 min | Current NZ grid carbon intensity in g CO₂/kWh (NZ-wide, not node-specific) |
+| `sensor.warden_renewable` | Sensor | 5 min | Current share of NZ generation that is renewable (%) (NZ-wide, not node-specific) |
+| `sensor.warden_{node}_forecast` | Sensor | 30 min | Next period's forecast price in $/kWh, with full 24hr forecast as attributes |
+| `sensor.warden_cheapest_1h_window` | Sensor | 30 min | Average price of the cheapest upcoming 1-hour window in $/kWh |
+| `sensor.warden_cheapest_2h_window` | Sensor | 30 min | Average price of the cheapest upcoming 2-hour window in $/kWh |
+| `sensor.warden_cheapest_3h_window` | Sensor | 30 min | Average price of the cheapest upcoming 3-hour window in $/kWh |
 
-> **Note:** Forecast and cheapest window sensors are currently NZ-only. AU forecast support is planned for a future release.
+> **Note:** The cheapest window and carbon/renewable entity IDs do not include your node. Forecast, cheapest window, Carbon Intensity and Renewable % sensors are currently NZ-only (unavailable for AU accounts). AU support is planned for a future release.
 
 ### Understanding the percentile sensor
 
@@ -89,9 +94,10 @@ If your exact node isn't available in the forecast data, the integration automat
 The cheapest window sensors identify the best upcoming time to run high-draw appliances or charge batteries. Each sensor finds the contiguous block of 30-minute periods with the lowest average price across the forecast horizon.
 
 Each sensor exposes:
-- **State** — average NZD/MWh across the cheapest window
+- **State** — average price in $/kWh across the cheapest window (use `states('sensor.warden_cheapest_1h_window')`; there is no separate average attribute)
 - `start_time` — ISO8601 timestamp when the cheap window begins
 - `end_time` — ISO8601 timestamp when the cheap window ends
+- `window_hours` — the window length (1, 2 or 3)
 - `node` — the node used for the forecast (may be zone reference node)
 
 ## Example automations
@@ -181,7 +187,7 @@ automation:
     condition:
       - condition: template
         value_template: >
-          {{ state_attr('sensor.warden_cheapest_1h_window', 'avg_price') | float < 80 }}
+          {{ states('sensor.warden_cheapest_1h_window') | float(999) < 0.08 }}
     action:
       - service: switch.turn_on
         target:
@@ -214,32 +220,28 @@ automation:
 
 ## Example dashboard card
 
-Here is an example card which shows the forcast price and cheapest windows
-# Warden Price Forecast — Lovelace example
-#
-# Requires (install via HACS first):
-#   - apexcharts-card        https://github.com/RomRider/apexcharts-card
-#   - config-template-card   https://github.com/iantrich/config-template-card
-#
-# Before pasting this in, replace YOUR_NODE everywhere below with your
-# own node code, e.g. alb0331 (check Settings -> Devices & Services ->
-# Warden -> your sensors to confirm the exact entity ids).
+Here is an example card which shows the forecast price and cheapest windows.
 
+It requires two cards from HACS: [apexcharts-card](https://github.com/RomRider/apexcharts-card) and [config-template-card](https://github.com/iantrich/config-template-card).
+
+Before pasting it in, replace `YOUR_NODE` with your own node code in lowercase, e.g. `alb0331` (it only appears in the forecast sensor's entity ID). Check **Settings → Devices & Services → Warden** to confirm your exact entity IDs.
+
+```yaml
 type: vertical-stack
 cards:
   - type: markdown
     content: >
       ## Warden Price Forecast
 
-      **Cheapest 1h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_1h_window', 'start_time')
+      **Cheapest 1h window:** {{ state_attr('sensor.warden_cheapest_1h_window', 'start_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
-      state_attr('sensor.warden_YOUR_NODE_cheapest_1h_window', 'end_time')
+      state_attr('sensor.warden_cheapest_1h_window', 'end_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
-      states('sensor.warden_YOUR_NODE_cheapest_1h_window') | float
+      states('sensor.warden_cheapest_1h_window') | float
       | round(4) }} $/kWh**
   - type: custom:config-template-card
     entities:
-      - sensor.warden_YOUR_NODE_cheapest_1h_window
+      - sensor.warden_cheapest_1h_window
       - sensor.warden_YOUR_NODE_forecast
     card:
       type: custom:apexcharts-card
@@ -259,11 +261,11 @@ cards:
           xaxis:
             - x: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_1h_window'].attributes.start_time).getTime()
+                Date(states['sensor.warden_cheapest_1h_window'].attributes.start_time).getTime()
                 }
               x2: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_1h_window'].attributes.end_time).getTime() }
+                Date(states['sensor.warden_cheapest_1h_window'].attributes.end_time).getTime() }
               fillColor: "#00b894"
               opacity: 0.25
               label:
@@ -292,15 +294,15 @@ cards:
             }));
   - type: markdown
     content: >
-      **Cheapest 2h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_2h_window', 'start_time')
+      **Cheapest 2h window:** {{ state_attr('sensor.warden_cheapest_2h_window', 'start_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
-      state_attr('sensor.warden_YOUR_NODE_cheapest_2h_window', 'end_time')
+      state_attr('sensor.warden_cheapest_2h_window', 'end_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
-      states('sensor.warden_YOUR_NODE_cheapest_2h_window') | float
+      states('sensor.warden_cheapest_2h_window') | float
       | round(4) }} $/kWh**
   - type: custom:config-template-card
     entities:
-      - sensor.warden_YOUR_NODE_cheapest_2h_window
+      - sensor.warden_cheapest_2h_window
       - sensor.warden_YOUR_NODE_forecast
     card:
       type: custom:apexcharts-card
@@ -320,11 +322,11 @@ cards:
           xaxis:
             - x: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_2h_window'].attributes.start_time).getTime()
+                Date(states['sensor.warden_cheapest_2h_window'].attributes.start_time).getTime()
                 }
               x2: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_2h_window'].attributes.end_time).getTime() }
+                Date(states['sensor.warden_cheapest_2h_window'].attributes.end_time).getTime() }
               fillColor: "#0984e3"
               opacity: 0.25
               label:
@@ -353,15 +355,15 @@ cards:
             }));
   - type: markdown
     content: >
-      **Cheapest 3h window:** {{ state_attr('sensor.warden_YOUR_NODE_cheapest_3h_window', 'start_time')
+      **Cheapest 3h window:** {{ state_attr('sensor.warden_cheapest_3h_window', 'start_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} – {{
-      state_attr('sensor.warden_YOUR_NODE_cheapest_3h_window', 'end_time')
+      state_attr('sensor.warden_cheapest_3h_window', 'end_time')
       | as_timestamp | timestamp_custom('%I:%M %p', true) }} @ **{{
-      states('sensor.warden_YOUR_NODE_cheapest_3h_window') | float
+      states('sensor.warden_cheapest_3h_window') | float
       | round(4) }} $/kWh**
   - type: custom:config-template-card
     entities:
-      - sensor.warden_YOUR_NODE_cheapest_3h_window
+      - sensor.warden_cheapest_3h_window
       - sensor.warden_YOUR_NODE_forecast
     card:
       type: custom:apexcharts-card
@@ -381,11 +383,11 @@ cards:
           xaxis:
             - x: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_3h_window'].attributes.start_time).getTime()
+                Date(states['sensor.warden_cheapest_3h_window'].attributes.start_time).getTime()
                 }
               x2: >-
                 ${ new
-                Date(states['sensor.warden_YOUR_NODE_cheapest_3h_window'].attributes.end_time).getTime() }
+                Date(states['sensor.warden_cheapest_3h_window'].attributes.end_time).getTime() }
               fillColor: "#6c5ce7"
               opacity: 0.25
               label:
@@ -414,7 +416,7 @@ cards:
             }));
 grid_options:
   columns: full
-
+```
 
 ## Data freshness
 

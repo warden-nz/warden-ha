@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import WardenCoordinator
-from .sensor import _device_info
+from .sensor import _device_info, _location_label
 
 
 async def async_setup_entry(
@@ -36,7 +36,7 @@ class WardenSpikeSensor(CoordinatorEntity, BinarySensorEntity):
     def __init__(self, coordinator: WardenCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        node = entry.data.get("node", "unknown")
+        node = _location_label(entry)
         self._attr_unique_id = f"{entry.entry_id}_spike_active"
         self._attr_name = f"Warden {node} Spike Active"
 

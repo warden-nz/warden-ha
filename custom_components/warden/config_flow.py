@@ -2,7 +2,10 @@
 
 Step 1 — user enters their wardenz.com username and password.
          The flow calls /auth/login to get a token, then /auth/me
-         to fetch the node (NZ) or region (AU) associated with their account.
+         to fetch the node (NZ) or region (AU) associated with their account,
+         then /ha/status to confirm the plan includes Home Assistant access
+         (Smart or Device plan). Free accounts get a "plan_required" error
+         here rather than an entry that can never load.
 Step 2 — confirmation screen showing the account details before saving.
 
 If the token ever expires after setup, HA will call async_step_reauth
@@ -18,7 +21,14 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .auth import async_login, async_get_account, WardenAuthError, WardenConnectionError
+from .auth import (
+    async_login,
+    async_get_account,
+    async_check_ha_access,
+    WardenAuthError,
+    WardenConnectionError,
+    WardenPlanRequiredError,
+)
 from .const import (
     DOMAIN,
     CONF_USERNAME,
@@ -70,6 +80,9 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_PASSWORD],
                 )
                 account = await async_get_account(session, token)
+                await async_check_ha_access(session, token)
+            except WardenPlanRequiredError:
+                errors["base"] = "plan_required"
             except WardenAuthError:
                 errors["base"] = "invalid_auth"
             except WardenConnectionError:
@@ -152,6 +165,9 @@ class WardenConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     user_input[CONF_PASSWORD],
                 )
                 account = await async_get_account(session, token)
+                await async_check_ha_access(session, token)
+            except WardenPlanRequiredError:
+                errors["base"] = "plan_required"
             except WardenAuthError:
                 errors["base"] = "invalid_auth"
             except WardenConnectionError:
